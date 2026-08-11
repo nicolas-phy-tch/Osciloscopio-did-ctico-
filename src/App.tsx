@@ -22,7 +22,9 @@ import {
   Mic,
   MicOff,
   Power,
-  Activity
+  Activity,
+  FileCode,
+  Download
 } from 'lucide-react';
 
 export default function App() {
@@ -451,7 +453,19 @@ export default function App() {
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 md:mt-0">
+          <div className="mt-4 flex flex-wrap gap-2 md:mt-0 items-center">
+            {/* Standalone HTML file direct launcher */}
+            <a
+              href="/osciloscopio.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 font-sans text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all shadow-lg active:scale-95"
+              title="Abrir simulación en archivo HTML 100% autónomo sin dependencias"
+            >
+              <FileCode className="h-4 w-4 text-emerald-400" />
+              <span>Abrir HTML Autónomo</span>
+            </a>
+
             {/* Display Active Frequency status or instructions */}
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 font-mono text-[11px] text-slate-300 flex items-center space-x-2.5 shadow-xl backdrop-blur-md">
               <Clock className="h-3.5 w-3.5 text-slate-400" />

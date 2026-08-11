@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laboratorio de Osciloscopio y Generador de Señales</title>
+  <!-- Tailwind CSS via CDN for portable styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom styling for realistic LED glow and oscilloscope screen */
+    body {
+      background-color: #080d16;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .grid-bg {
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .oscilloscope-screen {
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9), 0 0 25px rgba(16, 185, 129, 0.15);
+    }
+    /* Custom Knob Styling */
+    input[type=range] {
+      accent-color: #10b981;
+    }
+  </style>
+</head>
+<body class="min-h-screen grid-bg flex flex-col p-4 md:p-6 text-slate-100 antialiased select-none">
+
+  <!-- Header -->
+  <header class="max-w-7xl w-full mx-auto flex flex-col md:flex-row justify-between items-center pb-6 border-b border-white/10 gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          Laboratorio de Osciloscopio Autónomo
+          <span class="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">SINGLE FILE HTML</span>
+        </h1>
+        <p class="text-xs text-slate-400">Simulador completo de ondas audiofrecuencia y micrófono en tiempo real sin dependencias.</p>
+      </div>
+    </div>
+
+    <!-- Status indicator & Export -->
+    <div class="flex items-center space-x-3">
+      <div id="status-badge" class="flex items-center space-x-2 bg-slate-900 border border-white/10 px-3 py-1.5 rounded-full text-xs font-mono">
+        <span id="status-dot" class="h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+        <span id="status-text" class="text-slate-300">ESTADO: INACTIVO</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-7xl w-full mx-auto mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+
+    <!-- Oscilloscope Display & Quick Button Dock (8 Cols) -->
+    <section class="lg:col-span-8 flex flex-col space-y-4">
+      
+      <div class="flex flex-col md:flex-row items-stretch gap-4 w-full">
+        <!-- Canvas Screen -->
+        <div class="relative flex-1 min-w-0 bg-[#0a120e] rounded-3xl border border-emerald-500/20 overflow-hidden oscilloscope-screen min-h-[380px] flex flex-col">
+          <canvas id="scopeCanvas" class="w-full h-full block flex-1"></canvas>
+        </div>
+
+        <!-- Right Quick Action Circular Dock -->
+        <div class="flex flex-row md:flex-col items-center justify-center gap-2.5 bg-slate-950/60 border border-white/10 rounded-3xl p-3 shadow-2xl backdrop-blur-xl md:w-20 w-full">
+          
+          <!-- 1. Power Button -->
+          <button id="btn-power" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:border-white/20 active:scale-95 transition cursor-pointer" title="Encender / Apagar Laboratorio">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </button>
+
+          <!-- 2. Mode Button -->
+          <button id="btn-mode" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 active:scale-95 transition cursor-pointer" title="Cambiar Modo (Tiempo / FFT / VU)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </button>
+
+          <!-- 3. Grid Toggle Button -->
+          <button id="btn-grid" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-400 active:scale-95 transition cursor-pointer" title="Mostrar/Ocultar Grilla">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16M6 4v16M10 4v16M14 4v16M18 4v16"/></svg>
+          </button>
+
+          <!-- 4. Trigger Sync Button -->
+          <button id="btn-trigger" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 active:scale-95 transition cursor-pointer" title="Sincronizador Trigger AUTO">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </button>
+
+          <!-- 5. Freeze / Run Button -->
+          <button id="btn-freeze" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 active:scale-95 transition cursor-pointer" title="Congelar / Correr Pantalla">
+            <svg id="icon-pause" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg id="icon-play" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </button>
+
+          <!-- 6. Microphone Input Button -->
+          <button id="btn-mic" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 active:scale-95 transition cursor-pointer" title="Encender / Apagar Micrófono">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+          </button>
+
+          <!-- 7. Audio Mute Button -->
+          <button id="btn-mute" class="relative flex h-11 w-11 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-400 active:scale-95 transition cursor-pointer" title="Silenciar / Activar Altavoz">
+            <svg id="icon-volume" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+            <svg id="icon-mute" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Scope Calibration Bar -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/60 border border-white/10 p-4 rounded-2xl">
+        <div>
+          <label class="block text-[10px] font-mono text-slate-400 mb-1">TIMEBASE (Eje X): <span id="val-timebase">1.0x</span></label>
+          <input id="slider-timebase" type="range" min="0.2" max="5.0" step="0.1" value="1.0" class="w-full cursor-pointer" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-400 mb-1">VOLTS/DIV (Eje Y): <span id="val-voltsdiv">1.0x</span></label>
+          <input id="slider-voltsdiv" type="range" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full cursor-pointer" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-400 mb-1">FILTRO FREC: <span id="val-filter">10000 Hz</span></label>
+          <input id="slider-filter" type="range" min="100" max="18000" step="100" value="10000" class="w-full cursor-pointer" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-mono text-slate-400 mb-1">TIPO FILTRO</label>
+          <select id="select-filtertype" class="w-full bg-slate-950 border border-white/10 rounded px-2 py-1 text-xs font-mono text-slate-200">
+            <option value="allpass">Allpass (Sin Filtro)</option>
+            <option value="lowpass">Lowpass (Paso Bajo)</option>
+            <option value="highpass">Highpass (Paso Alto)</option>
+            <option value="bandpass">Bandpass (Paso Banda)</option>
+          </select>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Signal Generator Controls (4 Cols) -->
+    <section class="lg:col-span-4 flex flex-col space-y-4">
+      
+      <!-- Waveform Selector Panel -->
+      <div class="bg-slate-900/60 border border-white/10 p-5 rounded-3xl space-y-4">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+          <span>Forma de Onda</span>
+          <span class="text-[10px] font-mono text-emerald-400" id="current-wave-label">SENOIDAL</span>
+        </h2>
+
+        <div class="grid grid-cols-2 gap-2" id="wave-buttons">
+          <button data-wave="sine" class="wave-btn border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">1. Senoidal</button>
+          <button data-wave="square" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">2. Cuadrada</button>
+          <button data-wave="triangle" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">3. Triangular</button>
+          <button data-wave="sawtooth" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">4. Diente Sierra</button>
+          <button data-wave="pulse" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">5. Pulso 25%</button>
+          <button data-wave="noise" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">6. Ruido Blanco</button>
+          <button data-wave="harmonic" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">7. Armónicos (1+2+3)</button>
+          <button data-wave="chirp" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">8. Chirp Frec</button>
+          <button data-wave="phasemod" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">9. Mod. Fase</button>
+          <button data-wave="ecg" class="wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer">10. Cardio ECG</button>
+        </div>
+
+        <!-- Frequency Controls -->
+        <div class="pt-4 border-t border-white/10 space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400 font-mono">FRECUENCIA:</span>
+            <span id="val-freq" class="font-mono font-bold text-emerald-400 text-sm">440.0 Hz</span>
+          </div>
+          <input id="slider-freq" type="range" min="0" max="100" value="50" class="w-full cursor-pointer" />
+          
+          <div class="grid grid-cols-4 gap-1.5 pt-1">
+            <button class="preset-freq-btn border border-white/10 bg-white/5 hover:bg-white/10 text-[10px] font-mono py-1 rounded text-slate-300" data-hz="100">100Hz</button>
+            <button class="preset-freq-btn border border-white/10 bg-white/5 hover:bg-white/10 text-[10px] font-mono py-1 rounded text-slate-300" data-hz="440">440Hz</button>
+            <button class="preset-freq-btn border border-white/10 bg-white/5 hover:bg-white/10 text-[10px] font-mono py-1 rounded text-slate-300" data-hz="1000">1 kHz</button>
+            <button class="preset-freq-btn border border-white/10 bg-white/5 hover:bg-white/10 text-[10px] font-mono py-1 rounded text-slate-300" data-hz="5000">5 kHz</button>
+          </div>
+        </div>
+
+        <!-- Amplitude / Volume Controls -->
+        <div class="pt-3 border-t border-white/10 space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400 font-mono">AMPLITUD / VOL:</span>
+            <span id="val-amp" class="font-mono font-bold text-cyan-400 text-sm">50%</span>
+          </div>
+          <input id="slider-amp" type="range" min="0" max="1" step="0.01" value="0.5" class="w-full cursor-pointer" />
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="max-w-7xl w-full mx-auto mt-8 pt-4 border-t border-white/10 text-center text-xs font-mono text-slate-500">
+    Laboratorio de Generación de Señales y Osciloscopio Digital • HTML5 Standalone • Web Audio API & Canvas 2D
+  </footer>
+
+  <!-- Script Implementation -->
+  <script>
+    // Audio State & Web Audio API nodes
+    let audioCtx = null;
+    let analyser = null;
+    let gainNode = null;
+    let filterNode = null;
+    let sourceNode = null;
+    let micStream = null;
+    let micSource = null;
+
+    let isPlaying = false;
+    let isMuted = false;
+    let isMicActive = false;
+    let activeWave = 'sine';
+    let frequency = 440;
+    let amplitude = 0.5;
+
+    // Scope Settings
+    let scopeMode = 'time'; // 'time', 'frequency', 'vu'
+    let showGrid = true;
+    let triggerEnabled = true;
+    let isFrozen = false;
+    let timebase = 1.0;
+    let voltsPerDiv = 1.0;
+    let filterCutoff = 10000;
+    let filterType = 'allpass';
+
+    // DOM Elements
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    const ctx = scopeCanvas.getContext('2d');
+
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+
+    const btnPower = document.getElementById('btn-power');
+    const btnMode = document.getElementById('btn-mode');
+    const btnGrid = document.getElementById('btn-grid');
+    const btnTrigger = document.getElementById('btn-trigger');
+    const btnFreeze = document.getElementById('btn-freeze');
+    const btnMic = document.getElementById('btn-mic');
+    const btnMute = document.getElementById('btn-mute');
+
+    const iconPause = document.getElementById('icon-pause');
+    const iconPlay = document.getElementById('icon-play');
+    const iconVolume = document.getElementById('icon-volume');
+    const iconMute = document.getElementById('icon-mute');
+
+    const sliderTimebase = document.getElementById('slider-timebase');
+    const sliderVoltsdiv = document.getElementById('slider-voltsdiv');
+    const sliderFilter = document.getElementById('slider-filter');
+    const selectFilterType = document.getElementById('select-filtertype');
+
+    const valTimebase = document.getElementById('val-timebase');
+    const valVoltsdiv = document.getElementById('val-voltsdiv');
+    const valFilter = document.getElementById('val-filter');
+    const valFreq = document.getElementById('val-freq');
+    const valAmp = document.getElementById('val-amp');
+    const currentWaveLabel = document.getElementById('current-wave-label');
+
+    const sliderFreq = document.getElementById('slider-freq');
+    const sliderAmp = document.getElementById('slider-amp');
+
+    // Peak arrays for VU meter
+    let vuPeaks = new Array(24).fill(0);
+
+    // Map slider log scale for 20Hz - 20,000Hz
+    function sliderToFreq(val) {
+      const minF = 20, maxF = 20000;
+      return minF * Math.pow(maxF / minF, val / 100);
+    }
+    function freqToSlider(f) {
+      const minF = 20, maxF = 20000;
+      return (Math.log(f / minF) / Math.log(maxF / minF)) * 100;
+    }
+
+    // Initialize Web Audio API
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtx();
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+
+      filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = filterType;
+      filterNode.frequency.value = filterCutoff;
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = isMuted || isMicActive ? 0 : amplitude;
+
+      // Connections: Synth -> Filter -> Gain -> Analyser & Speaker Destination
+      filterNode.connect(gainNode);
+      gainNode.connect(analyser);
+      gainNode.connect(audioCtx.destination);
+    }
+
+    // Create waveform audio buffer / source
+    function createWaveBuffer(waveType, freq) {
+      if (!audioCtx) return;
+      const sampleRate = audioCtx.sampleRate;
+      const length = Math.floor(sampleRate * 2.0); // 2 sec loop buffer
+      const buffer = audioCtx.createBuffer(1, length, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const phase = (t * freq) % 1.0;
+
+        switch (waveType) {
+          case 'sine':
+            data[i] = Math.sin(2 * Math.PI * freq * t);
+            break;
+          case 'square':
+            data[i] = Math.sin(2 * Math.PI * freq * t) >= 0 ? 0.8 : -0.8;
+            break;
+          case 'triangle':
+            data[i] = (Math.abs(phase - 0.5) - 0.25) * 3.2;
+            break;
+          case 'sawtooth':
+            data[i] = (phase - 0.5) * 1.8;
+            break;
+          case 'pulse':
+            data[i] = phase < 0.25 ? 0.8 : -0.8;
+            break;
+          case 'noise':
+            data[i] = (Math.random() * 2 - 1) * 0.7;
+            break;
+          case 'harmonic':
+            data[i] = (Math.sin(2 * Math.PI * freq * t) +
+                       0.5 * Math.sin(4 * Math.PI * freq * t) +
+                       0.25 * Math.sin(6 * Math.PI * freq * t)) * 0.6;
+            break;
+          case 'chirp': {
+            const sweepFreq = 100 + (t % 1.0) * 2000;
+            data[i] = Math.sin(2 * Math.PI * sweepFreq * t) * 0.8;
+            break;
+          }
+          case 'phasemod': {
+            const mod = Math.sin(2 * Math.PI * 5 * t) * 1.5;
+            data[i] = Math.sin(2 * Math.PI * freq * t + mod) * 0.8;
+            break;
+          }
+          case 'ecg': {
+            const period = 1.0;
+            const cycleT = t % period;
+            let val = Math.sin(2 * Math.PI * 1.2 * cycleT) * 0.05;
+            if (cycleT > 0.35 && cycleT < 0.45) {
+              const p = (cycleT - 0.40) / 0.05;
+              val = (1 - Math.abs(p)) * 0.9; // QRS peak
+            }
+            data[i] = val;
+            break;
+          }
+          default:
+            data[i] = Math.sin(2 * Math.PI * freq * t);
+        }
+      }
+
+      if (sourceNode) {
+        try { sourceNode.stop(); } catch(e) {}
+        sourceNode.disconnect();
+      }
+
+      sourceNode = audioCtx.createBufferSource();
+      sourceNode.buffer = buffer;
+      sourceNode.loop = true;
+      sourceNode.connect(filterNode);
+      sourceNode.start();
+    }
+
+    // Toggle Power
+    function togglePower() {
+      initAudio();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        createWaveBuffer(activeWave, frequency);
+        gainNode.gain.setValueAtTime(isMuted || isMicActive ? 0 : amplitude, audioCtx.currentTime);
+        statusDot.className = "h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping";
+        statusText.textContent = "ESTADO: ACTIVO (ON)";
+        btnPower.className = "relative flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 transition cursor-pointer";
+      } else {
+        if (sourceNode) {
+          try { sourceNode.stop(); } catch(e) {}
+        }
+        statusDot.className = "h-2.5 w-2.5 rounded-full bg-rose-500";
+        statusText.textContent = "ESTADO: INACTIVO";
+        btnPower.className = "relative flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:border-white/20 active:scale-95 transition cursor-pointer";
+      }
+    }
+
+    // Toggle Microphone
+    async function toggleMicrophone() {
+      initAudio();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      if (isMicActive) {
+        if (micStream) {
+          micStream.getTracks().forEach(track => track.stop());
+          micStream = null;
+        }
+        if (micSource) {
+          micSource.disconnect();
+          micSource = null;
+        }
+        isMicActive = false;
+        btnMic.className = "relative flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 active:scale-95 transition cursor-pointer";
+        if (gainNode) {
+          gainNode.gain.setValueAtTime(isMuted ? 0 : amplitude, audioCtx.currentTime);
+        }
+      } else {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          micSource = audioCtx.createMediaStreamSource(micStream);
+          micSource.connect(analyser); // Connect to analyser ONLY to prevent speaker feedback
+          isMicActive = true;
+          btnMic.className = "relative flex h-11 w-11 items-center justify-center rounded-full border border-purple-500/40 bg-purple-500/10 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.3)] active:scale-95 transition cursor-pointer";
+          if (gainNode) {
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+          }
+        } catch (err) {
+          alert('No se pudo acceder al micrófono: ' + err.message);
+        }
+      }
+    }
+
+    // Resize Canvas Handler
+    function resizeCanvas() {
+      const rect = scopeCanvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      scopeCanvas.width = Math.floor(rect.width * dpr);
+      scopeCanvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Canvas Rendering Loop
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      if (isFrozen) return;
+
+      const width = scopeCanvas.width / (window.devicePixelRatio || 1);
+      const height = scopeCanvas.height / (window.devicePixelRatio || 1);
+
+      // Background clear
+      ctx.fillStyle = 'rgb(10, 18, 14)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Grid
+      if (showGrid) {
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+        ctx.lineWidth = 1;
+        const gridX = 10;
+        const gridY = 8;
+        for (let i = 0; i <= gridX; i++) {
+          const x = (width / gridX) * i;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        }
+        for (let j = 0; j <= gridY; j++) {
+          const y = (height / gridY) * j;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        }
+
+        // Center reticle
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+        ctx.beginPath(); ctx.moveTo(width / 2, 0); ctx.lineTo(width / 2, height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2); ctx.stroke();
+      }
+
+      if (!analyser || (!isPlaying && !isMicActive)) {
+        // Flatline
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2); ctx.stroke();
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.7)';
+        ctx.font = '11px monospace';
+        ctx.fillText('LAB_BENCH • INACTIVO', 12, 22);
+        return;
+      }
+
+      // Mic dominant frequency detection
+      let detectedFreq = frequency;
+      if (isMicActive) {
+        const fftLen = analyser.frequencyBinCount;
+        const fftBuf = new Uint8Array(fftLen);
+        analyser.getByteFrequencyData(fftBuf);
+        let maxVal = 0, maxIdx = 0;
+        for (let i = 2; i < Math.min(fftLen, 250); i++) {
+          if (fftBuf[i] > maxVal) { maxVal = fftBuf[i]; maxIdx = i; }
+        }
+        if (maxVal > 25) {
+          const binHz = (audioCtx.sampleRate) / (fftLen * 2);
+          detectedFreq = maxIdx * binHz;
+        }
+      }
+
+      if (scopeMode === 'time') {
+        const bufLen = analyser.fftSize;
+        const dataArray = new Float32Array(bufLen);
+        analyser.getFloatTimeDomainData(dataArray);
+
+        let vpp = 0;
+        for (let i = 0; i < bufLen; i++) {
+          vpp = Math.max(vpp, Math.abs(dataArray[i]));
+        }
+
+        let triggerIdx = 0;
+        if (triggerEnabled && (isMicActive || activeWave !== 'noise')) {
+          for (let i = 0; i < bufLen / 2; i++) {
+            if (dataArray[i] < 0 && dataArray[i + 1] >= 0) {
+              triggerIdx = i;
+              break;
+            }
+          }
+        }
+
+        ctx.strokeStyle = 'rgb(16, 185, 129)';
+        ctx.shadowColor = 'rgba(16, 185, 129, 0.8)';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        const samplesToDraw = Math.floor(width / timebase);
+        for (let i = 0; i < samplesToDraw; i++) {
+          const idx = triggerIdx + i;
+          if (idx >= bufLen) break;
+          const sample = dataArray[idx] * voltsPerDiv;
+          const x = (i / samplesToDraw) * width;
+          const y = (height / 2) - (sample * (height / 2) * 0.8);
+
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Telemetry Text
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.font = '10px monospace';
+        ctx.fillText(`TIMEBASE: ${(timebase).toFixed(1)}x | VOLTS/DIV: ${(voltsPerDiv).toFixed(1)}x`, 12, 20);
+        ctx.textAlign = 'right';
+        ctx.fillText(`TRIG: ${triggerEnabled ? 'AUTO' : 'OFF'}`, width - 12, 20);
+        ctx.fillText(`FREC: ${isMicActive ? detectedFreq.toFixed(0) + ' Hz (MIC)' : frequency.toFixed(1) + ' Hz'}`, width - 12, 35);
+        ctx.fillText(`Vpp: ${(vpp * 5).toFixed(2)} V`, width - 12, 50);
+        ctx.textAlign = 'left';
+
+      } else if (scopeMode === 'frequency') {
+        const bufLen = analyser.frequencyBinCount;
+        const freqArray = new Uint8Array(bufLen);
+        analyser.getByteFrequencyData(freqArray);
+
+        const barWidth = width / 120;
+        ctx.fillStyle = 'rgb(6, 182, 212)';
+        ctx.shadowColor = 'rgba(6, 182, 212, 0.6)';
+        ctx.shadowBlur = 6;
+
+        for (let i = 0; i < 120; i++) {
+          const val = freqArray[i * 2] / 255;
+          const barHeight = val * height * 0.85;
+          ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+        }
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.85)';
+        ctx.font = '10px monospace';
+        ctx.fillText('MODO: ESPECTRO FFT (FRECUENCIA)', 12, 20);
+        ctx.textAlign = 'right';
+        ctx.fillText(`PICO: ${detectedFreq.toFixed(0)} Hz`, width - 12, 20);
+        ctx.textAlign = 'left';
+
+      } else if (scopeMode === 'vu') {
+        const bufLen = analyser.frequencyBinCount;
+        const freqArray = new Uint8Array(bufLen);
+        analyser.getByteFrequencyData(freqArray);
+
+        const numBars = 24;
+        const barW = (width - 40) / numBars;
+
+        for (let i = 0; i < numBars; i++) {
+          const val = freqArray[i * 4] / 255;
+          const numLeds = 16;
+          const litLeds = Math.floor(val * numLeds);
+
+          if (val > vuPeaks[i]) vuPeaks[i] = val; else vuPeaks[i] = Math.max(0, vuPeaks[i] - 0.02);
+
+          const x = 20 + i * barW;
+          for (let l = 0; l < numLeds; l++) {
+            const y = height - 25 - (l * 14);
+            const isLit = l < litLeds;
+            ctx.fillStyle = isLit ? (l > 12 ? '#ef4444' : l > 8 ? '#f59e0b' : '#10b981') : 'rgba(255,255,255,0.05)';
+            ctx.fillRect(x + 2, y, barW - 4, 10);
+          }
+
+          // Peak dot
+          const peakY = height - 25 - (Math.floor(vuPeaks[i] * numLeds) * 14);
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillRect(x + 2, peakY, barW - 4, 3);
+        }
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.font = '10px monospace';
+        ctx.fillText('MODO: NIVELES VU METER', 12, 20);
+      }
+    }
+
+    // Controls Event Listeners
+    btnPower.addEventListener('click', togglePower);
+
+    btnMode.addEventListener('click', () => {
+      if (scopeMode === 'time') scopeMode = 'frequency';
+      else if (scopeMode === 'frequency') scopeMode = 'vu';
+      else scopeMode = 'time';
+    });
+
+    btnGrid.addEventListener('click', () => { showGrid = !showGrid; });
+    btnTrigger.addEventListener('click', () => { triggerEnabled = !triggerEnabled; });
+    
+    btnFreeze.addEventListener('click', () => {
+      isFrozen = !isFrozen;
+      iconPause.classList.toggle('hidden', isFrozen);
+      iconPlay.classList.toggle('hidden', !isFrozen);
+      btnFreeze.className = isFrozen 
+        ? "relative flex h-11 w-11 items-center justify-center rounded-full border border-rose-500/40 bg-rose-500/20 text-rose-400 active:scale-95 transition cursor-pointer"
+        : "relative flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 active:scale-95 transition cursor-pointer";
+    });
+
+    btnMic.addEventListener('click', toggleMicrophone);
+
+    btnMute.addEventListener('click', () => {
+      isMuted = !isMuted;
+      iconVolume.classList.toggle('hidden', isMuted);
+      iconMute.classList.toggle('hidden', !isMuted);
+      if (gainNode && audioCtx) {
+        gainNode.gain.setValueAtTime(isMuted || isMicActive ? 0 : amplitude, audioCtx.currentTime);
+      }
+    });
+
+    // Sliders
+    sliderTimebase.addEventListener('input', (e) => {
+      timebase = parseFloat(e.target.value);
+      valTimebase.textContent = `${timebase.toFixed(1)}x`;
+    });
+
+    sliderVoltsdiv.addEventListener('input', (e) => {
+      voltsPerDiv = parseFloat(e.target.value);
+      valVoltsdiv.textContent = `${voltsPerDiv.toFixed(1)}x`;
+    });
+
+    sliderFilter.addEventListener('input', (e) => {
+      filterCutoff = parseFloat(e.target.value);
+      valFilter.textContent = `${filterCutoff} Hz`;
+      if (filterNode) filterNode.frequency.value = filterCutoff;
+    });
+
+    selectFilterType.addEventListener('change', (e) => {
+      filterType = e.target.value;
+      if (filterNode) filterNode.type = filterType;
+    });
+
+    // Frequency Slider
+    sliderFreq.addEventListener('input', (e) => {
+      frequency = sliderToFreq(parseFloat(e.target.value));
+      valFreq.textContent = `${frequency.toFixed(1)} Hz`;
+      if (isPlaying) createWaveBuffer(activeWave, frequency);
+    });
+
+    // Preset Frequency Buttons
+    document.querySelectorAll('.preset-freq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hz = parseFloat(btn.dataset.hz);
+        frequency = hz;
+        sliderFreq.value = freqToSlider(hz);
+        valFreq.textContent = `${frequency.toFixed(1)} Hz`;
+        if (isPlaying) createWaveBuffer(activeWave, frequency);
+      });
+    });
+
+    // Amplitude Slider
+    sliderAmp.addEventListener('input', (e) => {
+      amplitude = parseFloat(e.target.value);
+      valAmp.textContent = `${Math.round(amplitude * 100)}%`;
+      if (gainNode && audioCtx && isPlaying && !isMuted && !isMicActive) {
+        gainNode.gain.setValueAtTime(amplitude, audioCtx.currentTime);
+      }
+    });
+
+    // Wave Buttons
+    document.querySelectorAll('.wave-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.wave-btn').forEach(b => {
+          b.className = "wave-btn border border-white/10 bg-white/5 text-slate-300 hover:border-white/20 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer";
+        });
+        btn.className = "wave-btn border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 py-2 px-3 rounded-xl text-xs font-mono font-bold text-left transition cursor-pointer";
+        activeWave = btn.dataset.wave;
+        currentWaveLabel.textContent = btn.textContent.split('. ')[1].toUpperCase();
+        if (isPlaying) createWaveBuffer(activeWave, frequency);
+      });
+    });
+
+    // Start rendering canvas loop
+    renderLoop();
+  </script>
+</body>
+</html>
