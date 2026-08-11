@@ -1,0 +1,6 @@
+{
+  "name": "Osciloscopio de Ondas Electrónicas",
+  "description": "Explora y escucha 10 tipos de ondas electrónicas en tiempo real con un osciloscopio interactivo y controles táctiles de frecuencia y amplitud.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
